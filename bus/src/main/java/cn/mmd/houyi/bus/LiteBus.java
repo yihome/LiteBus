@@ -11,4 +11,11 @@ package cn.mmd.houyi.bus;
 
 
 public class LiteBus {
+    public static void init() {
+
+    }
+
+    public static void sendAction() {
+
+    }
 }
