@@ -1,8 +1,13 @@
 package cn.mmd.houyi.processer;
 
+import com.squareup.javapoet.MethodSpec;
+
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -48,35 +53,67 @@ public class BusProcessor extends AbstractProcessor {
             return true;
         }
         // 合法的TypeElement集合
-        Set<ExecutableElement> methodElements = new HashSet<>();
-        for (Element element : elements) {
-            TypeElement typeElement = (TypeElement) element.getEnclosingElement();
-            if (validateElement(element)) {
-                methodElements.add((ExecutableElement) element);
-            }
-        }
+        Set<ExecutableElement> methodElements = elements.stream()
+                .filter((Predicate<Element>) this::validateElement)
+                .map(element -> (ExecutableElement) element)
+                .collect(Collectors.toSet());
+        generateActionFactory(methodElements);
+        generateBusImp();
+
+
+
+
+
+
         return false;
     }
 
+    private void generateActionFactory(Set<ExecutableElement> methodElements) {
+        for (ExecutableElement methodElement : methodElements) {
+            SubscribeStatic annotation = methodElement.getAnnotation(SubscribeStatic.class);
+            String type = annotation.type();
+        }
+    }
+
+    private void generateBusImp() {
+        MethodSpec sendAction = MethodSpec.methodBuilder("sendAction")
+                .addModifiers(Modifier.PUBLIC,Modifier.STATIC)
+                .returns(Void.class)
+                .addParameter(String.class,"type")
+                .addParameter(Object[].class,"args")
+                .addStatement("cn.mmd.houyi.bus.BusFactory.")
+                .build();
+    }
+
     /**
-     * Verify the annotated class.
+     * Verify the annotated method.
      */
     private boolean validateElement(Element methodElement) {
-        Set<Modifier> modifiers = methodElement.getModifiers();
+        TypeElement typeElement = (TypeElement) methodElement.getEnclosingElement();
+        Set<Modifier> typeModifiers = typeElement.getModifiers();
         // non-public class.
-        if (!modifiers.contains(Modifier.PUBLIC)) {
-            error(methodElement, "The method %s is not public.", methodElement.getSimpleName());
-            return false;
-        }
-        if (!modifiers.contains(Modifier.STATIC)) {
-            error(methodElement, "The method %s is not static.", methodElement.getSimpleName());
+        if (!typeModifiers.contains(Modifier.PUBLIC)) {
+            error(typeElement, "The class %s is not public.", typeElement.getQualifiedName());
             return false;
         }
         // abstract class.
-        if (modifiers.contains(Modifier.ABSTRACT)) {
-            error(methodElement,
+        if (typeModifiers.contains(Modifier.ABSTRACT)) {
+            error(typeElement,
                     "The method %s is abstract. You can't annotate abstract method with @%s.",
-                    methodElement.getSimpleName(), SubscribeStatic.class.getSimpleName());
+                    typeElement.getQualifiedName(), SubscribeStatic.class.getCanonicalName());
+            return false;
+        }
+
+        Set<Modifier> modifiers = methodElement.getModifiers();
+        // non-public method.
+        if (!modifiers.contains(Modifier.PUBLIC)) {
+            error(methodElement, "The method %s->%s is not public.", typeElement.getQualifiedName(),
+                    methodElement.getSimpleName());
+            return false;
+        }
+        if (!modifiers.contains(Modifier.STATIC)) {
+            error(methodElement, "The method %s->%s is not static.", typeElement.getQualifiedName(),
+                    methodElement.getSimpleName());
             return false;
         }
         return true;

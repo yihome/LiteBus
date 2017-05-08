@@ -15,7 +15,14 @@ public class LiteBus {
 
     }
 
-    public static void sendAction() {
-
+    /**
+     * send an action with a type, the static method annotated with the
+     * same type will response the action.
+     *
+     * @param type type of the action
+     * @param args args of the response method
+     */
+    public static void sendAction(String type, Object... args) {
+        BusImp.sendAction(type,args);
     }
 }

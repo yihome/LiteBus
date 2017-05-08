@@ -17,5 +17,5 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.METHOD)
 public @interface SubscribeStatic {
-    public String action();
+    public String type();
 }

@@ -1,1 +1,1 @@
-include ':app', ':bus', ':processer'
+include ':app', ':bus', ':processer', ':stub'
