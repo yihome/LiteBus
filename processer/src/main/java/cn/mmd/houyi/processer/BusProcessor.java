@@ -1,13 +1,17 @@
 package cn.mmd.houyi.processer;
 
+import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeSpec;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -19,6 +23,9 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
@@ -53,35 +60,113 @@ public class BusProcessor extends AbstractProcessor {
             return true;
         }
         // 合法的TypeElement集合
-        Set<ExecutableElement> methodElements = elements.stream()
-                .filter((Predicate<Element>) this::validateElement)
-                .map(element -> (ExecutableElement) element)
-                .collect(Collectors.toSet());
+        Set<ExecutableElement> methodElements = new HashSet<>();
+        for (Element element : elements) {
+            TypeElement typeElement = (TypeElement) element.getEnclosingElement();
+            if (validateElement(element)) {
+                methodElements.add((ExecutableElement) element);
+            }
+        }
+        //TODO 方法参数合法性校验
         generateActionFactory(methodElements);
-        generateBusImp();
-
-
-
-
+//        generateBusImp();
 
 
         return false;
     }
 
     private void generateActionFactory(Set<ExecutableElement> methodElements) {
+        HashMap<String, MethodSpec.Builder> methodSpecMap = generateChildMethod(methodElements);
+        MethodSpec sendAction = generateActionSendMethod(methodSpecMap);
+        TypeSpec.Builder builder = TypeSpec.classBuilder("ActionFactory")
+                .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+                .addMethod(sendAction);
+        for (String type : methodSpecMap.keySet()) {
+            builder.addMethod(methodSpecMap.get(type).build());
+        }
+        TypeSpec actionFactory = builder.build();
+        JavaFile javaFile = JavaFile.builder("cn.mmd.houyi.bus", actionFactory).build();
+        try {
+            javaFile.writeTo(mFiler);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private MethodSpec generateActionSendMethod(HashMap<String, MethodSpec.Builder> methodSpecMap) {
+        Iterator<String> iterator = methodSpecMap.keySet().iterator();
+        MethodSpec.Builder builder = MethodSpec.methodBuilder("sendAction")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(void.class)
+                .addParameter(String.class, "type")
+                .addParameter(Object[].class, "args");
+        if (iterator.hasNext()) {
+            String next = iterator.next();
+            builder.beginControlFlow("if (type.equals($S))", next);
+            builder.addStatement(next + "Action(args)");
+        }
+        while (iterator.hasNext()) {
+            String next = iterator.next();
+            builder.nextControlFlow("else if(type.equals($S))", next);
+            builder.addStatement(next + "Action(args)");
+        }
+        return builder.endControlFlow().build();
+    }
+
+    private HashMap<String, MethodSpec.Builder> generateChildMethod(
+            Set<ExecutableElement> methodElements) {
+        HashMap<String, MethodSpec.Builder> methodSpecMap = new HashMap<>();
         for (ExecutableElement methodElement : methodElements) {
+            TypeElement typeElement = (TypeElement) methodElement.getEnclosingElement();
             SubscribeStatic annotation = methodElement.getAnnotation(SubscribeStatic.class);
             String type = annotation.type();
+            MethodSpec.Builder typeMethod;
+            if ((typeMethod = methodSpecMap.get(type)) == null) {
+                typeMethod = MethodSpec.methodBuilder(String.format("%sAction", type))
+                        .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                        .returns(void.class)
+                        .addParameter(Object[].class, "args");
+                methodSpecMap.put(type, typeMethod);
+            }
+            String params = generateMethodParams(methodElement);
+            if ("".equals(params)) {
+                typeMethod.addStatement("$N.$N()", typeElement.getQualifiedName(),
+                        methodElement.getSimpleName());
+            }else{
+                typeMethod.addStatement("$N.$N("+params+")", typeElement.getQualifiedName(),
+                        methodElement.getSimpleName());
+            }
         }
+        return methodSpecMap;
+    }
+
+    private String generateMethodParams(ExecutableElement methodElement) {
+        List<? extends VariableElement> parameters = methodElement.getParameters();
+        //生成方法参数String
+        String params = "";
+        for (int i = 0; i < parameters.size(); i++) {
+            VariableElement variableElement = parameters.get(i);
+            TypeMirror typeMirror = variableElement.asType();
+            if (typeMirror instanceof TypeVariable) {
+                TypeVariable typeVariable = (TypeVariable) typeMirror;
+                typeMirror = typeVariable.getUpperBound();
+            }
+            if (i == 0) {
+                params = "(" + typeMirror.toString() + ")args[0]";
+            } else {
+                params += ", (" + typeMirror.toString() + ")args[" + i + "]";
+            }
+        }
+        return params;
     }
 
     private void generateBusImp() {
         MethodSpec sendAction = MethodSpec.methodBuilder("sendAction")
-                .addModifiers(Modifier.PUBLIC,Modifier.STATIC)
-                .returns(Void.class)
-                .addParameter(String.class,"type")
-                .addParameter(Object[].class,"args")
-                .addStatement("cn.mmd.houyi.bus.BusFactory.")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(void.class)
+                .addParameter(String.class, "type")
+                .addParameter(Object[].class, "args")
+                .addStatement("cn.mmd.houyi.bus.BusFactory.sendAction(type, args)")
                 .build();
     }
 
@@ -128,7 +213,7 @@ public class BusProcessor extends AbstractProcessor {
 
     @Override
     public SourceVersion getSupportedSourceVersion() {
-        return SourceVersion.RELEASE_8;
+        return SourceVersion.RELEASE_7;
     }
 
     @Override

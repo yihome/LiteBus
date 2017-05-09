@@ -14,8 +14,8 @@ import java.lang.annotation.Target;
  * @since [产品/模块版本]
  */
 
-@Retention(RetentionPolicy.SOURCE)
-@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.CLASS)
+@Target({ElementType.METHOD})
 public @interface SubscribeStatic {
-    public String type();
+    String type();
 }

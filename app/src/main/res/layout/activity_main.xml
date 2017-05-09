@@ -8,6 +8,8 @@
     tools:context="cn.mmd.houyi.litebus.MainActivity">
 
     <TextView
+        android:id="@+id/txt"
+        android:background="@color/colorAccent"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Hello World!"

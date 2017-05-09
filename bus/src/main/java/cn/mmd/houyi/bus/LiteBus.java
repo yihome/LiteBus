@@ -11,10 +11,6 @@ package cn.mmd.houyi.bus;
 
 
 public class LiteBus {
-    public static void init() {
-
-    }
-
     /**
      * send an action with a type, the static method annotated with the
      * same type will response the action.
@@ -23,6 +19,6 @@ public class LiteBus {
      * @param args args of the response method
      */
     public static void sendAction(String type, Object... args) {
-        BusImp.sendAction(type,args);
+        ActionFactory.sendAction(type, args);
     }
 }
