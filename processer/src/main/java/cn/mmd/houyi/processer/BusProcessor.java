@@ -62,19 +62,23 @@ public class BusProcessor extends AbstractProcessor {
         // 合法的TypeElement集合
         Set<ExecutableElement> methodElements = new HashSet<>();
         for (Element element : elements) {
-            TypeElement typeElement = (TypeElement) element.getEnclosingElement();
             if (validateElement(element)) {
                 methodElements.add((ExecutableElement) element);
             }
         }
         //TODO 方法参数合法性校验
         generateActionFactory(methodElements);
-//        generateBusImp();
 
 
         return false;
     }
 
+    /**
+     * generate the ActionFactory class
+     * ActionFactory is used to invoke the true method.
+     *
+     * @param methodElements element List annotated by the
+     */
     private void generateActionFactory(Set<ExecutableElement> methodElements) {
         HashMap<String, MethodSpec.Builder> methodSpecMap = generateChildMethod(methodElements);
         MethodSpec sendAction = generateActionSendMethod(methodSpecMap);
@@ -132,8 +136,8 @@ public class BusProcessor extends AbstractProcessor {
             if ("".equals(params)) {
                 typeMethod.addStatement("$N.$N()", typeElement.getQualifiedName(),
                         methodElement.getSimpleName());
-            }else{
-                typeMethod.addStatement("$N.$N("+params+")", typeElement.getQualifiedName(),
+            } else {
+                typeMethod.addStatement("$N.$N(" + params + ")", typeElement.getQualifiedName(),
                         methodElement.getSimpleName());
             }
         }
@@ -158,16 +162,6 @@ public class BusProcessor extends AbstractProcessor {
             }
         }
         return params;
-    }
-
-    private void generateBusImp() {
-        MethodSpec sendAction = MethodSpec.methodBuilder("sendAction")
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(void.class)
-                .addParameter(String.class, "type")
-                .addParameter(Object[].class, "args")
-                .addStatement("cn.mmd.houyi.bus.BusFactory.sendAction(type, args)")
-                .build();
     }
 
     /**
