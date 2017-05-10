@@ -3,7 +3,8 @@ an LiteBus In Android to invoke static method by annotation.The lib can be used 
 project.
 
 
-##Simple Usage
+## Simple Usage
+
 use the `@SubscribeStatic` above you target static method,the `type` is the key used to find the 
 method, it is necessary.
 
